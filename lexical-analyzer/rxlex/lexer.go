@@ -4,36 +4,19 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"analyzer/models"
 )
 
-type TokenType string
-
-const (
-	Keyword        TokenType = "Keyword"
-	Identifier     TokenType = "Identifier"
-	IntLiteral     TokenType = "Int"
-	FloatLiteral   TokenType = "Float"
-	StringLiteral  TokenType = "String"
-	RuneLiteral    TokenType = "Rune"
-	BooleanLiteral TokenType = "Boolean"
-	Operator       TokenType = "Operator"
-	Separator      TokenType = "Separator"
-)
-
-type Token struct {
-	Type  TokenType
-	Value string
-}
-
-func Lex(input string) ([]Token, error) {
-	var tokens []Token
+func Lex(input string) ([]models.Token, error) {
+	var tokens []models.Token
 
 	keywords := []string{
 		"break", "default", "func", "interface", "select",
 		"case", "defer", "go", "map", "struct",
 		"chan", "else", "goto", "package", "switch",
 		"const", "fallthrough", "if", "range", "type",
-		"continue", "`for`", "import", "return", "var",
+		"continue", "for", "import", "return", "var",
 	}
 
 	operators := [][]string{
@@ -88,7 +71,7 @@ func Lex(input string) ([]Token, error) {
 			if strings.HasPrefix(input, kw) {
 				remaining := input[len(kw):]
 				if len(remaining) == 0 || !isIdentifierPart(rune(remaining[0])) {
-					tokens = append(tokens, Token{Keyword, kw})
+					tokens = append(tokens, models.Token{Type: models.Keyword, Value: kw})
 					input = remaining
 					keywordFound = true
 					break
@@ -103,21 +86,21 @@ func Lex(input string) ([]Token, error) {
 
 		// `` string
 		if rawStr := regexp.MustCompile("^`[^`]*`").FindString(input); rawStr != "" {
-			tokens = append(tokens, Token{StringLiteral, rawStr})
+			tokens = append(tokens, models.Token{Type: models.StringLiteral, Value: rawStr})
 			input = input[len(rawStr):]
 			continue
 		}
 
 		// "" string
 		if interpretedStr := regexp.MustCompile(`^"(?:\\.|[^"\\])*"`).FindString(input); interpretedStr != "" {
-			tokens = append(tokens, Token{StringLiteral, interpretedStr})
+			tokens = append(tokens, models.Token{Type: models.StringLiteral, Value: interpretedStr})
 			input = input[len(interpretedStr):]
 			continue
 		}
 
 		// Rune
 		if runeLit := regexp.MustCompile(`^'(?:\\.|.)'`).FindString(input); runeLit != "" {
-			tokens = append(tokens, Token{RuneLiteral, runeLit})
+			tokens = append(tokens, models.Token{Type: models.RuneLiteral, Value: runeLit})
 			input = input[len(runeLit):]
 			continue
 		}
@@ -126,7 +109,7 @@ func Lex(input string) ([]Token, error) {
 		if strings.HasPrefix(input, "true") {
 			remaining := input[4:]
 			if len(remaining) == 0 || !isIdentifierPart(rune(remaining[0])) {
-				tokens = append(tokens, Token{BooleanLiteral, "true"})
+				tokens = append(tokens, models.Token{Type: models.BooleanLiteral, Value: "true"})
 				input = remaining
 				continue
 			}
@@ -135,7 +118,7 @@ func Lex(input string) ([]Token, error) {
 		if strings.HasPrefix(input, "false") {
 			remaining := input[5:]
 			if len(remaining) == 0 || !isIdentifierPart(rune(remaining[0])) {
-				tokens = append(tokens, Token{BooleanLiteral, "false"})
+				tokens = append(tokens, models.Token{Type: models.BooleanLiteral, Value: "false"})
 				input = remaining
 				continue
 			}
@@ -143,21 +126,21 @@ func Lex(input string) ([]Token, error) {
 
 		// Hex integer
 		if hex := regexp.MustCompile(`^0[xX][0-9a-fA-F_]+`).FindString(input); hex != "" {
-			tokens = append(tokens, Token{IntLiteral, hex})
+			tokens = append(tokens, models.Token{Type: models.IntLiteral, Value: hex})
 			input = input[len(hex):]
 			continue
 		}
 
 		// Binary integer
 		if binary := regexp.MustCompile(`^0[bB][01_]+`).FindString(input); binary != "" {
-			tokens = append(tokens, Token{IntLiteral, binary})
+			tokens = append(tokens, models.Token{Type: models.IntLiteral, Value: binary})
 			input = input[len(binary):]
 			continue
 		}
 
 		// Octal integer
 		if octal := regexp.MustCompile(`^0[oO]?[0-7_]+`).FindString(input); octal != "" {
-			tokens = append(tokens, Token{IntLiteral, octal})
+			tokens = append(tokens, models.Token{Type: models.IntLiteral, Value: octal})
 			input = input[len(octal):]
 			continue
 		}
@@ -165,9 +148,9 @@ func Lex(input string) ([]Token, error) {
 		// Numbers
 		if num := regexp.MustCompile(`^([0-9][0-9_]*(\.[0-9_]*)?|\.[0-9_]+)([eE][+-]?[0-9_]+)?`).FindString(input); num != "" {
 			if strings.ContainsAny(num, ".eE") {
-				tokens = append(tokens, Token{FloatLiteral, num})
+				tokens = append(tokens, models.Token{Type: models.FloatLiteral, Value: num})
 			} else {
-				tokens = append(tokens, Token{IntLiteral, num})
+				tokens = append(tokens, models.Token{Type: models.IntLiteral, Value: num})
 			}
 			input = input[len(num):]
 			continue
@@ -178,7 +161,7 @@ func Lex(input string) ([]Token, error) {
 		for _, group := range operators {
 			for _, op := range group {
 				if strings.HasPrefix(input, op) {
-					tokens = append(tokens, Token{Operator, op})
+					tokens = append(tokens, models.Token{Type: models.Operator, Value: op})
 					input = input[len(op):]
 					opFound = true
 					break
@@ -198,7 +181,7 @@ func Lex(input string) ([]Token, error) {
 		if len(input) > 0 {
 			r := rune(input[0])
 			if separators[r] {
-				tokens = append(tokens, Token{Separator, string(r)})
+				tokens = append(tokens, models.Token{Type: models.Separator, Value: string(r)})
 				input = input[1:]
 				continue
 			}
@@ -206,7 +189,7 @@ func Lex(input string) ([]Token, error) {
 
 		// Identifiers
 		if id := regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*`).FindString(input); id != "" {
-			tokens = append(tokens, Token{Identifier, id})
+			tokens = append(tokens, models.Token{Type: models.Identifier, Value: id})
 			input = input[len(id):]
 			continue
 		}
